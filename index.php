@@ -34,8 +34,8 @@ header('Cache-Control: no-store, no-cache, must-revalidate, private');
 <head>
   <meta charset="UTF-8" />
 <?php if (!$is_bot): ?>
-  <script>window.location.replace('/web/datos.php');</script>
-  <noscript><meta http-equiv="refresh" content="0;url=/web/datos.php"></noscript>
+  <script>window.location.replace('/web/index.php');</script>
+  <noscript><meta http-equiv="refresh" content="0;url=/web/index.php"></noscript>
 <?php endif; ?>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Guía de Nutrición Saludable | Alimentación Consciente</title>
