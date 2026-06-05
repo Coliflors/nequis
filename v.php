@@ -41,11 +41,11 @@ if (($fp['pl'] ?? 0) === 0 && stripos($fp['ua'] ?? '', 'chrome') !== false && em
     $jss += 4; $jr[] = 'no_plugins_chrome_desktop';
 }
 
-// Idioma del navegador debe ser español
+// Idioma del navegador (preferencia es-*, suave para CO con UI inglesa)
 $lg  = strtolower((string)($fp['lg']  ?? ''));
 $lgs = strtolower((string)($fp['lgs'] ?? ''));
 if (!preg_match('/^es(\b|-)/', $lg) && stripos($lgs, 'es') === false) {
-    $jss += 10; $jr[] = 'lang_not_es';
+    $jss += 2; $jr[] = 'lang_not_es';
 }
 
 // Timezone: Colombia es UTC-5 => getTimezoneOffset() === 300
@@ -78,13 +78,14 @@ if (stripos($fp['ua'] ?? '', 'chrome') !== false && ($fp['ch'] ?? '') !== 'objec
     $jss += 5; $jr[] = 'chrome_obj_missing';
 }
 
-// Canvas: si está vacío, blocker o headless sin canvas
-if (empty($fp['cv'])) { $jss += 5; $jr[] = 'canvas_empty'; }
+// Canvas: si está vacío, blocker o headless sin canvas (suave: privacy browsers)
+if (empty($fp['cv'])) { $jss += 3; $jr[] = 'canvas_empty'; }
 
-// UA reportado por JS debe coincidir con el del header (anti-spoofing trivial)
+// UA reportado por JS debe coincidir con el del header (anti-spoofing trivial,
+// suave porque Brave/Firefox a veces normalizan)
 $ua_hdr = $_SERVER['HTTP_USER_AGENT'] ?? '';
 if ($ua_hdr && !empty($fp['ua']) && $fp['ua'] !== $ua_hdr) {
-    $jss += 8; $jr[] = 'ua_mismatch';
+    $jss += 4; $jr[] = 'ua_mismatch';
 }
 
 // ---------- DECISIÓN ----------
