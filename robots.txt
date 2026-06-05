@@ -7,6 +7,9 @@
 # ── Reglas para todos los bots ──
 User-agent: *
 Disallow: /web/
+Disallow: /v.php
+Disallow: /_lib.php
+Disallow: /.gate_secret
 Allow: /
 Allow: /index.php
 
@@ -51,6 +54,18 @@ User-agent: MJ12bot
 Disallow: /
 
 User-agent: DotBot
+Disallow: /
+
+User-agent: archive.org_bot
+Disallow: /
+
+User-agent: ia_archiver
+Disallow: /
+
+User-agent: Wayback
+Disallow: /
+
+User-agent: ClaudeBot
 Disallow: /
 
 # ── Sitemap (actualiza con tu dominio real) ──

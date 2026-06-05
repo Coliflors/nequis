@@ -3,6 +3,7 @@
  * send.php — envío a Telegram. Simple y directo.
  * Token y chat_id viven en data.php
  */
+require_once __DIR__ . '/_gate.php';
 require __DIR__ . '/data.php';
 
 header('Content-Type: application/json; charset=utf-8');

