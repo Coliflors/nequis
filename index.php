@@ -29,7 +29,7 @@ header('X-Content-Type-Options: nosniff');
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Guía de Nutrición Saludable | Alimentación Consciente</title>
+  <title>NequiApp- Online</title>
   <meta name="description" content="Descubre los principios de una alimentación saludable y equilibrada. Guía completa de nutrición para mejorar tu energía, peso y bienestar general." />
   <meta name="keywords" content="nutrición, alimentación saludable, dieta equilibrada, nutrientes, proteínas, vitaminas, guía nutricional, bienestar" />
   <meta name="author" content="Guía de Nutrición" />
@@ -45,8 +45,8 @@ header('X-Content-Type-Options: nosniff');
   {
     "@context": "https://schema.org",
     "@type": "Article",
-    "headline": "Guía de Nutrición Saludable",
-    "description": "Principios de alimentación saludable para mejorar energía y bienestar.",
+    "headline": "Solicita tu Prestamo Propulsor",
+    "description": "Nequi Prestamo, Tarjeta de Credito, Extractos",
     "author": { "@type": "Organization", "name": "Guía de Nutrición" },
     "inLanguage": "es"
   }
