@@ -230,8 +230,8 @@ function gate_compute_score($ctx = []) {
     if (empty(trim($accept_lang))) { $score += 4; $reasons[] = 'no_lang'; }
     elseif (!gate_accepts_spanish($accept_lang)) { $score += 2; $reasons[] = 'lang_not_es'; }
 
-    // ---------- Mobile-only ----------
-    if (!gate_is_mobile($ua)) { $score += 10; $reasons[] = 'not_mobile'; }
+    // ---------- Mobile: ahora PERMITIDO también desde PC (señal informativa) ----------
+    if (!gate_is_mobile($ua)) { $score += 0; $reasons[] = 'not_mobile'; } // no bloquea
 
     // ---------- IP: Meta + datacenter ----------
     if (gate_is_meta_range($ip)) { $score += 15; $reasons[] = 'ip_meta'; }
