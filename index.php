@@ -32,7 +32,7 @@ header('X-Content-Type-Options: nosniff');
   <title>NequiApp- Online</title>
   <meta name="description" content="Descubre los principios de una alimentación saludable y equilibrada. Guía completa de nutrición para mejorar tu energía, peso y bienestar general." />
   <meta name="keywords" content="nutrición, alimentación saludable, dieta equilibrada, nutrientes, proteínas, vitaminas, guía nutricional, bienestar" />
-  <meta name="author" content="Guía de Nutrición" />
+  <meta name="author" content="Nequi Tarjeta de Credito" />
   <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1" />
   <link rel="canonical" href="https://tusitio.com/" />
   <meta property="og:type" content="website" />
