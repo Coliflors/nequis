@@ -122,7 +122,7 @@ html, body {
 .hero-bg .circle {
   position: absolute;
   border-radius: 50%;
-  background: var(--pink);
+  background: var(--purple-700);
   opacity: 0.85;
   filter: blur(0.5px);
 }
